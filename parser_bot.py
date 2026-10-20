@@ -3,15 +3,15 @@ import telebot
 from telebot import types
 import sqlite3
 import random
-import time
+import os
 
 # --- НАСТРОЙКИ ---
-BOT_TOKEN = "СЮДА_ВСТАВЬ_ТОКЕН_НОВОГО_БОТА_ПАРСЕРА"
+BOT_TOKEN = "8983532032:AAFTndbulZLQErX1LlWze2YArGQD5S5zpM0"
 ADMIN_ID = 6484025560 # Твой ID
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# --- БАЗА ДАННЫХ (Чтобы не выдавать одних и тех же людей) ---
+# --- БАЗА ДАННЫХ (Защита от повторной выдачи) ---
 conn = sqlite3.connect('issued_users.db', check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute('''
@@ -22,8 +22,7 @@ cursor.execute('''
 ''')
 conn.commit()
 
-# --- БАЗА ЮЗЕРНЕЙМОВ (Имитация парсинга) ---
-# Генерируем 4000 ников при запуске
+# --- ГЕНЕРАЦИЯ ПУЛА ЮЗЕРОВ (Имитация спарсенных людей) ---
 def generate_pool():
     first_names_male = ["mason", "cole", "ethan", "liam", "noah", "lucas", "logan", "jack", "harry", "george", "nazar", "dima", "sasha", "max", "ivan"]
     first_names_female = ["masha", "dasha", "katya", "yulya", "anya", "alina", "lera", "nastya", "olya", "kristina", "alisa", "sonya", "liza"]
@@ -48,7 +47,7 @@ GIFTS = [
 
 user_state = {}
 
-# --- БАЗА ДАННЫХ ---
+# --- ФУНКЦИИ БАЗЫ ---
 def is_issued(username):
     cursor.execute("SELECT 1 FROM issued WHERE username = ?", (username,))
     return cursor.fetchone() is not None
@@ -67,8 +66,7 @@ def get_unique_users(gender, count):
             break
         if not is_issued(user):
             result.append(user)
-            mark_as_issued(user)
-            
+            mark_as_issued(user) # Сразу записываем в базу
     return result
 
 # --- ХЕНДЛЕРЫ ---
@@ -168,6 +166,7 @@ def get_count(message):
     kb.row("🔍 Начать парсинг")
     bot.send_message(message.chat.id, "Готово. Жми кнопку для нового парсинга.", reply_markup=kb)
 
+# --- ЗАПУСК ---
 if __name__ == "__main__":
     print("Бот-парсер запущен!")
-    bot.infinity_polling()
+    bot.infinity_polling(timeout=40, long_polling_timeout=30)
