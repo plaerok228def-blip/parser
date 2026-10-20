@@ -4,14 +4,27 @@ from telebot import types
 import sqlite3
 import random
 import os
+import threading
+from flask import Flask
 
 # --- НАСТРОЙКИ ---
 BOT_TOKEN = "8983532032:AAFTndbulZLQErX1LlWze2YArGQD5S5zpM0"
-ADMIN_ID = 6484025560 # Твой ID
+ADMIN_ID = 6484025560 
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# --- БАЗА ДАННЫХ (Защита от повторной выдачи) ---
+# --- ВЕБ-СЕРВЕР ДЛЯ RENDER ---
+app = Flask(__name__)
+
+@app.route('/')
+def health_check():
+    return "Parser bot is alive", 200
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+# --- БАЗА ДАННЫХ ---
 conn = sqlite3.connect('issued_users.db', check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute('''
@@ -22,7 +35,7 @@ cursor.execute('''
 ''')
 conn.commit()
 
-# --- ГЕНЕРАЦИЯ ПУЛА ЮЗЕРОВ (Имитация спарсенных людей) ---
+# --- ПУЛ ЮЗЕРОВ ---
 def generate_pool():
     first_names_male = ["mason", "cole", "ethan", "liam", "noah", "lucas", "logan", "jack", "harry", "george", "nazar", "dima", "sasha", "max", "ivan"]
     first_names_female = ["masha", "dasha", "katya", "yulya", "anya", "alina", "lera", "nastya", "olya", "kristina", "alisa", "sonya", "liza"]
@@ -36,7 +49,6 @@ def generate_pool():
 
 USER_POOL = generate_pool()
 
-# --- СПИСОК ПОДАРКОВ ---
 GIFTS = [
     "Bunny Muffin", "Mirage Lamp", "Heart Locket", "Durov's Cap", 
     "Artisan Brick", "Sharp Tongue", "Blue Muffin", "Crystal Ball",
@@ -66,7 +78,7 @@ def get_unique_users(gender, count):
             break
         if not is_issued(user):
             result.append(user)
-            mark_as_issued(user) # Сразу записываем в базу
+            mark_as_issued(user)
     return result
 
 # --- ХЕНДЛЕРЫ ---
@@ -168,5 +180,7 @@ def get_count(message):
 
 # --- ЗАПУСК ---
 if __name__ == "__main__":
-    print("Бот-парсер запущен!")
+    # Запускаем Flask в отдельном потоке для Render
+    threading.Thread(target=run_flask, daemon=True).start()
+    print("Веб-сервер и бот-парсер запущены!")
     bot.infinity_polling(timeout=40, long_polling_timeout=30)
